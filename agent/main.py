@@ -1,5 +1,6 @@
 import os
-from fastapi import FastAPI, Form, Header, HTTPException
+from fastapi import FastAPI, Request, Header, HTTPException
+from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
 from whatsapp import handle_whatsapp_message
 from word_of_day import send_word_of_day
@@ -9,10 +10,32 @@ load_dotenv()
 app = FastAPI()
 
 
+@app.get("/webhook")
+async def verify_webhook(request: Request):
+    """Meta pings this once to verify the webhook URL is yours."""
+    params = request.query_params
+    if (
+        params.get("hub.mode") == "subscribe"
+        and params.get("hub.verify_token") == os.environ.get("META_VERIFY_TOKEN")
+    ):
+        return PlainTextResponse(params.get("hub.challenge", ""))
+    raise HTTPException(status_code=403)
+
+
 @app.post("/webhook")
-async def webhook(From: str = Form(...), Body: str = Form(...)):
-    """Twilio sends form-encoded POST requests."""
-    await handle_whatsapp_message(phone=From, body=Body)
+async def webhook(request: Request):
+    """Receives incoming WhatsApp messages from Meta."""
+    data = await request.json()
+
+    for entry in data.get("entry", []):
+        for change in entry.get("changes", []):
+            value = change.get("value", {})
+            for message in value.get("messages", []):
+                if message.get("type") == "text":
+                    phone = message["from"]          # e.g. '447739863789'
+                    body = message["text"]["body"]
+                    await handle_whatsapp_message(phone=phone, body=body)
+
     return {}
 
 

@@ -3,8 +3,8 @@ uvicorn[standard]
 python-multipart
 python-dotenv
 supabase
-twilio
+requests
 langchain
-langchain-openai
 langchain-anthropic
 langgraph
+tenacity

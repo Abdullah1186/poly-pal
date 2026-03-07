@@ -1,10 +1,11 @@
-import os
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.prebuilt import create_react_agent
-from twilio.rest import Client as TwilioClient
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
+from anthropic import InternalServerError
 from db import supabase
 from tools import build_user_tools
+from messenger import send_whatsapp
 
 llm = ChatAnthropic(model="claude-haiku-4-5-20251001")
 
@@ -16,11 +17,20 @@ SYSTEM_PROMPT = (
 )
 
 
-async def handle_whatsapp_message(phone: str, body: str):
-    twilio = TwilioClient(os.environ["TWILIO_SID"], os.environ["TWILIO_AUTH_TOKEN"])
-    whatsapp_number = os.environ["TWILIO_WHATSAPP_NUMBER"]
+def _is_overloaded(e: BaseException) -> bool:
+    return isinstance(e, InternalServerError) and getattr(e, "status_code", None) == 529
 
-    # Look up the user — maybe_single() returns None instead of raising when 0 rows
+
+@retry(
+    retry=retry_if_exception(_is_overloaded),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    stop=stop_after_attempt(4),
+)
+def _run_agent(agent, messages):
+    return agent.invoke({"messages": messages})
+
+
+async def handle_whatsapp_message(phone: str, body: str):
     result = (
         supabase.table("users")
         .select("language")
@@ -29,16 +39,11 @@ async def handle_whatsapp_message(phone: str, body: str):
         .execute()
     )
     if not result or not result.data:
-        twilio.messages.create(
-            from_=f"whatsapp:{whatsapp_number}",
-            to=phone,
-            body="You are not registered yet. Please visit the app to sign up first.",
-        )
+        send_whatsapp(phone, "You are not registered yet. Please visit the app to sign up first.")
         return
 
     language = result.data["language"]
 
-    # Load last 20 messages for context
     history_result = (
         supabase.table("messages")
         .select("role, content")
@@ -55,25 +60,21 @@ async def handle_whatsapp_message(phone: str, body: str):
         for m in history
     ]
 
-    # Build and run agent
-    tools = build_user_tools(phone, language)
-    agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
+    try:
+        tools = build_user_tools(phone, language)
+        agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
+        agent_result = _run_agent(agent, [*chat_history, HumanMessage(content=body)])
 
-    agent_result = agent.invoke({
-        "messages": [*chat_history, HumanMessage(content=body)],
-    })
+        last_message = agent_result["messages"][-1]
+        reply_text = last_message.content if isinstance(last_message.content, str) else str(last_message.content)
 
-    last_message = agent_result["messages"][-1]
-    reply_text = last_message.content if isinstance(last_message.content, str) else str(last_message.content)
+        supabase.table("messages").insert([
+            {"phone": phone, "role": "user", "content": body},
+            {"phone": phone, "role": "assistant", "content": reply_text},
+        ]).execute()
 
-    # Persist both sides of the conversation
-    supabase.table("messages").insert([
-        {"phone": phone, "role": "user", "content": body},
-        {"phone": phone, "role": "assistant", "content": reply_text},
-    ]).execute()
+        send_whatsapp(phone, reply_text)
 
-    twilio.messages.create(
-        from_=f"whatsapp:{whatsapp_number}",
-        to=phone,
-        body=reply_text,
-    )
+    except Exception as e:
+        print(f"Agent error: {e}")
+        send_whatsapp(phone, "Sorry, I'm having a moment — try again in a few seconds!")
