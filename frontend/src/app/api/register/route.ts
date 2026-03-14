@@ -10,9 +10,12 @@ const supabase = createClient(
 export async function POST(req: NextRequest) {
   const { phoneNumber, language } = await req.json();
 
+  // Normalise to match Meta's format: digits only, no +, spaces, or dashes
+  const phone = phoneNumber.replace(/^\+/, '').replace(/[\s\-]/g, '');
+
   const { data, error } = await supabase
     .from('users')
-    .insert([{ phone: phoneNumber, language }]);
+    .insert([{ phone, language }]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ message: 'User registered', data });
