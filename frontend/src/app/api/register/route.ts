@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import supabase from '@/lib/db';
+import { createClient } from '@supabase/supabase-js';
+
+// Use service role key server-side — never exposed to the browser
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: NextRequest) {
   const { phoneNumber, language } = await req.json();
