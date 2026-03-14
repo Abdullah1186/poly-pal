@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone TEXT UNIQUE NOT NULL,
   language TEXT NOT NULL,
+  level TEXT NOT NULL DEFAULT 'A1',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

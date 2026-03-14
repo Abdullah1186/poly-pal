@@ -4,12 +4,22 @@ import { useState } from 'react';
 
 const LANGUAGES = [
   'Spanish', 'French', 'German', 'Italian', 'Portuguese',
-  'Japanese', 'Mandarin', 'Korean', 'Arabic', 'Hindi',
+  'Japanese', 'Mandarin', 'Korean', 'Arabic', 'Hindi', 'Farsi', 'Urdu',
+];
+
+const LEVELS = [
+  { value: 'A1', label: 'A1 — Beginner' },
+  { value: 'A2', label: 'A2 — Elementary' },
+  { value: 'B1', label: 'B1 — Intermediate' },
+  { value: 'B2', label: 'B2 — Upper Intermediate' },
+  { value: 'C1', label: 'C1 — Advanced' },
+  { value: 'C2', label: 'C2 — Fluent' },
 ];
 
 export default function Home() {
   const [phone, setPhone] = useState('');
   const [language, setLanguage] = useState(LANGUAGES[0]);
+  const [level, setLevel] = useState('A1');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -21,7 +31,7 @@ export default function Home() {
     const res = await fetch('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber: phone, language }),
+      body: JSON.stringify({ phoneNumber: phone, language, level }),
     });
 
     if (res.ok) {
@@ -37,12 +47,12 @@ export default function Home() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black px-6">
         <div className="max-w-sm w-full text-center space-y-4">
-          <div className="text-4xl">🎉</div>
-          <h1 className="text-2xl font-semibold text-black dark:text-white">You're in!</h1>
+          <div className="text-4xl">✉️</div>
+          <h1 className="text-2xl font-semibold text-black dark:text-white">Your pen pal is waiting!</h1>
           <p className="text-zinc-600 dark:text-zinc-400">
-            WhatsApp <span className="font-medium text-black dark:text-white">{process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}</span> to start learning {language}.
+            Send a WhatsApp message to <span className="font-medium text-black dark:text-white">{process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}</span> to start chatting in {language}.
           </p>
-          <p className="text-sm text-zinc-400">We'll also send you a word of the day to keep you sharp.</p>
+          <p className="text-sm text-zinc-400">You'll also get a word of the day to keep things interesting.</p>
         </div>
       </main>
     );
@@ -56,7 +66,7 @@ export default function Home() {
             Poly Pal
           </h1>
           <p className="text-zinc-500 dark:text-zinc-400">
-            Learn a language over WhatsApp. Enter your number and we'll message you.
+            A WhatsApp pen pal who speaks the language you're learning. Just chat — no lessons, no drills.
           </p>
         </div>
 
@@ -79,7 +89,7 @@ export default function Home() {
 
           <div className="space-y-1">
             <label htmlFor="language" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Language to learn
+              Language to practise
             </label>
             <select
               id="language"
@@ -93,6 +103,22 @@ export default function Home() {
             </select>
           </div>
 
+          <div className="space-y-1">
+            <label htmlFor="level" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Your current level
+            </label>
+            <select
+              id="level"
+              value={level}
+              onChange={e => setLevel(e.target.value)}
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+            >
+              {LEVELS.map(l => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+
           {status === 'error' && (
             <p className="text-sm text-red-500">{errorMsg}</p>
           )}
@@ -102,7 +128,7 @@ export default function Home() {
             disabled={status === 'loading'}
             className="w-full rounded-lg bg-black dark:bg-white text-white dark:text-black font-medium py-2.5 hover:bg-zinc-800 dark:hover:bg-zinc-100 disabled:opacity-50 transition-colors"
           >
-            {status === 'loading' ? 'Signing up…' : 'Start learning'}
+            {status === 'loading' ? 'Setting up…' : 'Meet your pen pal'}
           </button>
         </form>
       </div>
