@@ -2,7 +2,17 @@ from langchain_core.tools import tool
 from db import supabase
 
 
-def build_user_tools(phone: str, language: str):
+LEVEL_BALANCE = {
+    'A1': '~10% target language, ~90% English. Single words and short phrases only.',
+    'A2': '~25% target language, ~75% English. Simple sentences, always translated.',
+    'B1': '~50% target language, ~50% English. Mix freely, translate new vocabulary.',
+    'B2': '~75% target language, ~25% English. Mostly target language, English for complex points.',
+    'C1': '~90% target language, ~10% English. Near-fluent conversation.',
+    'C2': '~100% target language. Native-level conversation.',
+}
+
+
+def build_user_tools(phone: str, language: str, level: str = 'A1'):
     """Return LangChain tools bound to a specific user."""
 
     @tool
@@ -84,4 +94,13 @@ def build_user_tools(phone: str, language: str):
         topic_hint = f" focused on the topic: {topic}" if topic else ""
         return f"Generate {desc} in {language}{topic_hint}. Keep it short and suitable for WhatsApp."
 
-    return [save_progress, get_weak_words, generate_exercise]
+    @tool
+    def get_language_balance() -> str:
+        """
+        Returns the recommended language mix for this user based on their CEFR level.
+        Call this if you are unsure how much of the target language to use.
+        """
+        balance = LEVEL_BALANCE.get(level, LEVEL_BALANCE['A1'])
+        return f"User's level: {level}. Recommended balance: {balance}"
+
+    return [save_progress, get_weak_words, generate_exercise, get_language_balance]

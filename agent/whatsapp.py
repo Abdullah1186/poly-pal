@@ -9,14 +9,27 @@ from messenger import send_whatsapp
 
 llm = ChatAnthropic(model="claude-haiku-4-5-20251001")
 
-def build_system_prompt(language: str) -> str:
+# How much of the target language to use at each CEFR level
+LEVEL_GUIDANCE = {
+    'A1': 'Write almost entirely in English. Sprinkle in single target-language words or very short phrases (greetings, numbers, colours). Always translate anything you say in the target language immediately afterwards.',
+    'A2': 'Write mostly in English. Include short simple sentences in the target language — greetings, basic questions, simple statements. Always follow with an English translation in brackets.',
+    'B1': 'Mix English and the target language roughly 50/50. Use the target language for straightforward sentences and switch to English for anything complex. Provide translations for new or tricky vocabulary.',
+    'B2': 'Write mainly in the target language. Use English only to clarify genuinely difficult concepts or vocabulary. Do not translate unless the user seems confused.',
+    'C1': 'Write almost entirely in the target language. Use English only very occasionally for nuanced explanation. Treat the user as a confident speaker.',
+    'C2': 'Write entirely in the target language. Treat the user as near-native. Never translate unless explicitly asked.',
+}
+
+
+def build_system_prompt(language: str, level: str) -> str:
+    guidance = LEVEL_GUIDANCE.get(level, LEVEL_GUIDANCE['A1'])
     return (
-        f"You are a friendly, encouraging WhatsApp tutor helping the user learn {language}. "
-        f"You already know their target language is {language} — never ask them what they are learning. "
-        f"Keep messages concise — this is WhatsApp, not an essay. "
-        f"Converse naturally in both English and {language}. Gently correct mistakes. "
-        f"Use your tools to run quizzes, track progress, and personalise practice. "
-        f"When the user answers a quiz question, always call save_progress to record the result."
+        f"You are a friendly, curious pen pal who is a native {language} speaker. "
+        f"You chat naturally about everyday life — your day, interests, culture, food, travel, opinions. "
+        f"You are NOT a teacher or tutor. Never give formal lessons, grammar tables, or structured exercises. "
+        f"If the user makes a mistake, correct it naturally and warmly in passing, the way a friend would, then move on. "
+        f"The user's CEFR level is {level}. {guidance} "
+        f"Always be the one to keep the conversation going — ask follow-up questions, share your own thoughts, suggest new topics. "
+        f"Never ask the user what they want to practise or what topic they want. Just chat."
     )
 
 
@@ -36,7 +49,7 @@ def _run_agent(agent, messages):
 async def handle_whatsapp_message(phone: str, body: str):
     result = (
         supabase.table("users")
-        .select("language")
+        .select("language, level")
         .eq("phone", phone)
         .maybe_single()
         .execute()
@@ -46,6 +59,7 @@ async def handle_whatsapp_message(phone: str, body: str):
         return
 
     language = result.data["language"]
+    level = result.data.get("level", "A1")
 
     history_result = (
         supabase.table("messages")
@@ -64,8 +78,8 @@ async def handle_whatsapp_message(phone: str, body: str):
     ]
 
     try:
-        tools = build_user_tools(phone, language)
-        agent = create_react_agent(llm, tools, prompt=build_system_prompt(language))
+        tools = build_user_tools(phone, language, level)
+        agent = create_react_agent(llm, tools, prompt=build_system_prompt(language, level))
         agent_result = _run_agent(agent, [*chat_history, HumanMessage(content=body)])
 
         last_message = agent_result["messages"][-1]
