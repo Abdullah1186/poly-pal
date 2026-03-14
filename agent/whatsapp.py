@@ -9,12 +9,15 @@ from messenger import send_whatsapp
 
 llm = ChatAnthropic(model="claude-haiku-4-5-20251001")
 
-SYSTEM_PROMPT = (
-    "You are a friendly, encouraging language tutor on WhatsApp. "
-    "Keep messages concise — this is a chat app, not an essay. "
-    "Mix in the target language naturally and gently correct mistakes. "
-    "Use your tools to quiz the user, track their progress, and personalise practice."
-)
+def build_system_prompt(language: str) -> str:
+    return (
+        f"You are a friendly, encouraging WhatsApp tutor helping the user learn {language}. "
+        f"You already know their target language is {language} — never ask them what they are learning. "
+        f"Keep messages concise — this is WhatsApp, not an essay. "
+        f"Converse naturally in both English and {language}. Gently correct mistakes. "
+        f"Use your tools to run quizzes, track progress, and personalise practice. "
+        f"When the user answers a quiz question, always call save_progress to record the result."
+    )
 
 
 def _is_overloaded(e: BaseException) -> bool:
@@ -62,7 +65,7 @@ async def handle_whatsapp_message(phone: str, body: str):
 
     try:
         tools = build_user_tools(phone, language)
-        agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
+        agent = create_react_agent(llm, tools, prompt=build_system_prompt(language))
         agent_result = _run_agent(agent, [*chat_history, HumanMessage(content=body)])
 
         last_message = agent_result["messages"][-1]
