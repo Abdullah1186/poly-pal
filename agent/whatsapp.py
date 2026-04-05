@@ -86,21 +86,21 @@ async def handle_whatsapp_message(phone: str, body: str):
     ]
 
     try:
-        async with MultiServerMCPClient(MCP_CONFIG) as mcp_client:
-            mcp_tools = mcp_client.get_tools()
-            tools = build_user_tools(phone, language, level) + mcp_tools
-            agent = create_react_agent(llm, tools, prompt=build_system_prompt(language, level))
-            agent_result = _run_agent(agent, [*chat_history, HumanMessage(content=body)])
+        mcp_client = MultiServerMCPClient(MCP_CONFIG)
+        mcp_tools = await mcp_client.get_tools()
+        tools = build_user_tools(phone, language, level) + mcp_tools
+        agent = create_react_agent(llm, tools, prompt=build_system_prompt(language, level))
+        agent_result = _run_agent(agent, [*chat_history, HumanMessage(content=body)])
 
-            last_message = agent_result["messages"][-1]
-            reply_text = last_message.content if isinstance(last_message.content, str) else str(last_message.content)
+        last_message = agent_result["messages"][-1]
+        reply_text = last_message.content if isinstance(last_message.content, str) else str(last_message.content)
 
-            supabase.table("messages").insert([
-                {"phone": phone, "role": "user", "content": body},
-                {"phone": phone, "role": "assistant", "content": reply_text},
-            ]).execute()
+        supabase.table("messages").insert([
+            {"phone": phone, "role": "user", "content": body},
+            {"phone": phone, "role": "assistant", "content": reply_text},
+        ]).execute()
 
-            send_whatsapp(phone, reply_text)
+        send_whatsapp(phone, reply_text)
 
     except Exception as e:
         print(f"Agent error: {e}")
