@@ -103,5 +103,7 @@ async def handle_whatsapp_message(phone: str, body: str):
         send_whatsapp(phone, reply_text)
 
     except Exception as e:
+        import traceback
         print(f"Agent error: {e}")
+        print(traceback.format_exc())
         send_whatsapp(phone, "Sorry, I'm having a moment — try again in a few seconds!")
