@@ -16,6 +16,7 @@ async def send_word_of_day():
                 f"Give a single interesting {user['language']} word of the day for a language learner. "
                 f"Format: the word in {user['language']}, its pronunciation, its English meaning, "
                 f"and one example sentence. Keep it short."
+                f" and also explain the etymology of the word, its root of the word, and any interesting cultural context around it like how got introduced to the language. "
             )
         ])
         text = response.content if isinstance(response.content, str) else str(response.content)
