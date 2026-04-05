@@ -50,8 +50,8 @@ def _is_overloaded(e: BaseException) -> bool:
     wait=wait_exponential(multiplier=1, min=2, max=30),
     stop=stop_after_attempt(4),
 )
-def _run_agent(agent, messages):
-    return agent.invoke({"messages": messages})
+async def _run_agent(agent, messages):
+    return await agent.ainvoke({"messages": messages})
 
 
 async def handle_whatsapp_message(phone: str, body: str):
@@ -90,7 +90,7 @@ async def handle_whatsapp_message(phone: str, body: str):
         mcp_tools = await mcp_client.get_tools()
         tools = build_user_tools(phone, language, level) + mcp_tools
         agent = create_react_agent(llm, tools, prompt=build_system_prompt(language, level))
-        agent_result = _run_agent(agent, [*chat_history, HumanMessage(content=body)])
+        agent_result = await _run_agent(agent, [*chat_history, HumanMessage(content=body)])
 
         last_message = agent_result["messages"][-1]
         reply_text = last_message.content if isinstance(last_message.content, str) else str(last_message.content)
