@@ -3,9 +3,17 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.prebuilt import create_react_agent
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 from anthropic import InternalServerError
+from langchain_mcp_adapters.client import MultiServerMCPClient
 from db import supabase
 from tools import build_user_tools
 from messenger import send_whatsapp
+
+MCP_CONFIG = {
+    "language-learn-mcp": {
+        "url": "https://language-learn-mcp-production.up.railway.app/sse",
+        "transport": "sse",
+    }
+}
 
 llm = ChatAnthropic(model="claude-haiku-4-5-20251001")
 
@@ -78,19 +86,21 @@ async def handle_whatsapp_message(phone: str, body: str):
     ]
 
     try:
-        tools = build_user_tools(phone, language, level)
-        agent = create_react_agent(llm, tools, prompt=build_system_prompt(language, level))
-        agent_result = _run_agent(agent, [*chat_history, HumanMessage(content=body)])
+        async with MultiServerMCPClient(MCP_CONFIG) as mcp_client:
+            mcp_tools = mcp_client.get_tools()
+            tools = build_user_tools(phone, language, level) + mcp_tools
+            agent = create_react_agent(llm, tools, prompt=build_system_prompt(language, level))
+            agent_result = _run_agent(agent, [*chat_history, HumanMessage(content=body)])
 
-        last_message = agent_result["messages"][-1]
-        reply_text = last_message.content if isinstance(last_message.content, str) else str(last_message.content)
+            last_message = agent_result["messages"][-1]
+            reply_text = last_message.content if isinstance(last_message.content, str) else str(last_message.content)
 
-        supabase.table("messages").insert([
-            {"phone": phone, "role": "user", "content": body},
-            {"phone": phone, "role": "assistant", "content": reply_text},
-        ]).execute()
+            supabase.table("messages").insert([
+                {"phone": phone, "role": "user", "content": body},
+                {"phone": phone, "role": "assistant", "content": reply_text},
+            ]).execute()
 
-        send_whatsapp(phone, reply_text)
+            send_whatsapp(phone, reply_text)
 
     except Exception as e:
         print(f"Agent error: {e}")

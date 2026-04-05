@@ -6,5 +6,6 @@ supabase
 requests
 langchain
 langchain-anthropic
+langchain-mcp-adapters
 langgraph
 tenacity
