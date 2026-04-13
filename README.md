@@ -219,14 +219,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ### Backend (Heroku)
 
 ```bash
-# Create Heroku app
-heroku create poly-pal-api
+# Login to Railway
+railway login
+
+# Initialize a new Railway project
+railway init
+# (This creates a project and links your current directory)
 
 # Set environment variables
-heroku config:set SUPABASE_URL=... OPENAI_API_KEY=... etc.
+railway variables set SUPABASE_URL=...
+railway variables set OPENAI_API_KEY=...
+railway variables set META_VERIFY_TOKEN=...
+railway variables set META_ACCESS_TOKEN=...
+# etc.
 
 # Deploy
-git push heroku main
+railway up
+
 ```
 
 ### Frontend (Vercel)
@@ -263,13 +272,7 @@ We welcome contributions! Areas of focus:
 - Gamification features
 - AI tutor improvements
 
-## License
 
-MIT License
-
-## Author
-
-Abdullah Hasan
 
 ## Related Projects
 
